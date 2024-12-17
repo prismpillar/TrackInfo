@@ -1,0 +1,79 @@
+#!/bin/bash
+
+# Display usage instructions
+if [[ "$1" == "-h" || "$1" == "--help" || "$#" -lt 1 ]]; then
+    echo "Usage: trackinfo [options] <file_or_folder>"
+    echo
+    echo "Options:"
+    echo "  -h, --help      Show this help message."
+    echo "  -r              Process files recursively (include subfolders)."
+    echo
+    echo "Examples:"
+    echo "  trackinfo ./Videos         # Scan only the current folder."
+    echo "  trackinfo ./file1.mkv      # Scan a single file."
+    echo "  trackinfo -r ./Videos      # Scan current folder and subfolders."
+    exit 0
+fi
+
+# Parse arguments
+recursive=false
+if [[ "$1" == "-r" ]]; then
+    recursive=true
+    shift
+fi
+
+# Validate input (either file or folder)
+input="$1"
+if [[ ! -e "$input" ]]; then
+    echo "Error: '$input' is not a valid file or folder."
+    exit 1
+fi
+
+# If input is a file, process that file
+if [[ -f "$input" && "$input" == *.mkv ]]; then
+    files="$input"
+else
+    # If input is a folder, scan for all MKV files
+    if [[ -d "$input" ]]; then
+        if [[ "$recursive" == true ]]; then
+            files=$(find "$input" -type f -name "*.mkv")
+        else
+            files=$(find "$input" -maxdepth 1 -type f -name "*.mkv")
+        fi
+    else
+        echo "Error: '$input' is neither a valid file nor a folder."
+        exit 1
+    fi
+fi
+
+if [[ -z "$files" ]]; then
+    echo "No MKV files found in the specified folder or file."
+    exit 0
+fi
+
+echo "Scanning MKV files: $input"
+echo "---------------------------------------"
+
+# Process each file and extract track counts
+for file in $files; do
+    echo "File: $file"
+    
+    # Initialize counts
+    audio_count=0
+    subtitle_count=0
+
+    # Extract track info using mkvmerge and count audio and subtitle tracks
+    track_info=$(mkvmerge --identify "$file" 2>&1)
+    
+    # Debugging: Show the full output of mkvmerge --identify
+    echo "$track_info"  # Display full output for debugging
+
+    # Count the audio tracks and subtitle tracks
+    audio_count=$(echo "$track_info" | grep -c "audio")
+    subtitle_count=$(echo "$track_info" | grep -c "subtitles")
+
+    # Output the counts for each file
+    echo "  - Audio Tracks: $audio_count"
+    echo "  - Subtitle Tracks: $subtitle_count"
+    echo "---------------------------------------"
+done
